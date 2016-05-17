@@ -119,9 +119,9 @@ TimeLineWidget::TimeLineWidget()
   layout()->addWidget(m_goToEndFrameButton);
 
   m_frameRateComboBox = new QComboBox(this);
-  m_frameRateComboBox->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
-  m_frameRateComboBox->setMinimumWidth(70);
-  m_frameRateComboBox->setMaximumWidth(70);
+  //m_frameRateComboBox->setSizePolicy(QSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed));
+  //m_frameRateComboBox->setMinimumWidth(70);
+  //m_frameRateComboBox->setMaximumWidth(70);
   m_frameRateComboBox->setFrame(false);
   m_frameRateComboBox->setLayoutDirection(Qt::LeftToRight);
   m_frameRateComboBox->setEditable(false);
