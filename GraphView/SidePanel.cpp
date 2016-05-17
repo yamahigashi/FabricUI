@@ -330,7 +330,7 @@ void SidePanel::updateItemGroupScroll(float height)
       m_itemGroupScroll = 0.0;
   }
 
-  //m_itemGroup->setTransform(QTransform::fromTranslate(0, m_itemGroupScroll), false);
+  m_itemGroup->setTransform(QTransform::fromTranslate(0, m_itemGroupScroll), false);
 
   // [Julien]
   // Update the image overlay when panels are resized.
