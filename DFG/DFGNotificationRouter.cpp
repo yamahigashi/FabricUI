@@ -1582,6 +1582,7 @@ void DFGNotificationRouter::checkAndFixPanelPortOrder()
       return;
 
   // check/fix the panels.
+  bool isRootExec = m_dfgController->getExecPath().empty();
   for (int pass=0;pass<2;pass++)
   {
     GraphView::SidePanel *panel = uiGraph->sidePanel(pass == 0 ? GraphView::PortType_Input : GraphView::PortType_Output);
@@ -1592,8 +1593,12 @@ void DFGNotificationRouter::checkAndFixPanelPortOrder()
     QStringList correctNames;
     for (unsigned int i=0;i<exec.getExecPortCount();i++)
       if (exec.getExecPortType(i) != portType)
+      {
+        // skip root exec port (it is not shown in the left panel).
+        if (i == 0 && isRootExec && portType == FabricCore::DFGPortType_Out)
+          continue;
         correctNames.append(QString(exec.getExecPortName(i)));
-
+      }
     // check if the panel's port order mismatches and reorder the ports if necessary.
     if (size_t(panel->portCount()) == size_t(correctNames.count()))
     {
