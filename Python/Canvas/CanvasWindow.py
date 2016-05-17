@@ -412,7 +412,7 @@ class CanvasWindow(DFG.DFGMainWindow):
 
         # Toggle Value Editor Dock Widget Action
         toggleAction = self.valueEditorDockWidget.toggleViewAction()
-        toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_6)
+        toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_3)
         windowMenu.addAction(toggleAction)
 
         # Toggle Timeline Dock Widget Action
