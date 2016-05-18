@@ -12,6 +12,7 @@ from PySide import QtCore, QtGui, QtOpenGL
 from FabricEngine import Core, FabricUI
 from FabricEngine.FabricUI import DFG, KLASTManager, Viewports, TimeLine
 from FabricEngine.Canvas.ScriptEditor import ScriptEditor
+from FabricEngine.Canvas.NodeHierarchyViewer import NodeHierarchyViewerWidget
 from FabricEngine.Canvas.UICmdHandler import UICmdHandler
 from FabricEngine.Canvas.RTValEncoderDecoder import RTValEncoderDecoder
 
@@ -83,6 +84,7 @@ class CanvasWindow(DFG.DFGMainWindow):
         self._initGL()
         self._initValueEditor()
         self._initTimeLine()
+        self._initNodeHierarchyViewer()
         self._initDocks()
         self._initMenus()
 
@@ -324,6 +326,16 @@ class CanvasWindow(DFG.DFGMainWindow):
         self.timeLine.frameChanged.connect(self.onFrameChanged)
         self.timeLine.frameChanged.connect(self.valueEditor.onFrameChanged)
 
+    def _initNodeHierarchyViewer(self):
+        """Initializes the node explorer.
+
+        Also connects the DFG Controller's dirty signal to the onDirty method.
+        """
+
+        controller = self.dfgWidget.getDFGController()
+        self.nodeHierarchyViewer = NodeHierarchyViewerWidget(self.host, controller, self.dfgWidget, self.config, self)
+        controller.topoDirty.connect(self.nodeHierarchyViewer.refresh)
+
     def _initDocks(self):
         """Initializes all of dock widgets for the application.
 
@@ -393,6 +405,13 @@ class CanvasWindow(DFG.DFGMainWindow):
         self.scriptEditor.titleDataChanged.connect(scriptEditorTitleDataChanged)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.scriptEditorDock, QtCore.Qt.Vertical)
 
+        # Node Hierarchy Viewer Dock Widget
+        self.nodeHierarchyViewerDock = QtGui.QDockWidget("Node Hierarchy Viewer", self)
+        self.nodeHierarchyViewerDock.setObjectName("Node Hierarchy Viewer")
+        self.nodeHierarchyViewerDock.setFeatures(self.dockFeatures)
+        self.nodeHierarchyViewerDock.setWidget(self.nodeHierarchyViewer)
+        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.nodeHierarchyViewerDock, QtCore.Qt.Horizontal)
+
     def _initMenus(self):
         """Initializes all menus for the application."""
 
@@ -435,6 +454,11 @@ class CanvasWindow(DFG.DFGMainWindow):
         # Toggle Script Editor Dock Widget Action
         toggleAction = self.scriptEditorDock.toggleViewAction()
         toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_7)
+        windowMenu.addAction(toggleAction)
+
+        # Toggle Script Editor Dock Widget Action
+        toggleAction = self.nodeHierarchyViewerDock.toggleViewAction()
+        toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_8)
         windowMenu.addAction(toggleAction)
 
     def onPortManipulationRequested(self, portName):
