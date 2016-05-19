@@ -16,14 +16,7 @@ class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
         self.initData()
 
     def setHeader(self):
-        '''
-        self.setHorizontalHeaderLabels(['Title', 'Type', 'Ports'])
-
-        self.setHorizontalHeaderItem(0, QtGui.QStandardItem('Name'))
-        self.setHorizontalHeaderItem(1, QtGui.QStandardItem('execType'))
-        self.setHorizontalHeaderItem(2, QtGui.QStandardItem('nodeType'))
-        '''
-        return
+        self.setHorizontalHeaderLabels(['Name', 'Type', 'Preset'])
 
     def getRootIndex(self):
         return self.rootIndex
@@ -104,8 +97,6 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
             currentDFGExec = self.__controller.getExec()
             subdfgexec = currentDFGExec.getSubExec(parentPath)
             self.__controller.setExec(parentPath, subdfgexec)
-            self.__controller.frameAllNodes()
-            self.__controller.zoomCanvas(1000.0)
 
         graph = self.__dfgWidget.getUIGraph()
         n = graph.nodeFromPath(name)
@@ -159,38 +150,9 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         toolbar.addSeparator()
         return toolbar
 
+    # /*
     def styleSheet(self):
-        widgetStyleSheet = """
-
-QWidget#NodeHierarchyViewerWidget QTreeView {
-    selection-background-color: black; /* Used on Mac */
-    selection-color: white; /* Used on Mac */
-    show-decoration-selected: 1;
-}
-
-QWidget#NodeHierarchyViewerWidget QTreeView::item {
-    background-color: black; /* Used on Windows */
-    color: white;
-    border-width:0 20;
-    border-image: url(D:/fabric/repositry/FabricUI/Python/Canvas/project.png) 0 0 0 20 norepeat;
-}
-
-
-
-QWidget#NodeHierarchyViewerWidget QTreeView::item[execType=0] {
-    color: black;
-}
-
-QWidget#NodeHierarchyViewerWidget QTreeView::item[execType="0"] {
-    color: black;
-}
-
-
-QWidget#NodeHierarchyViewerWidget QTreeView::item:selected {
-    color: black;
-}
-
-
+        widgetStyleSheet = """  /* */
 
         """
 
