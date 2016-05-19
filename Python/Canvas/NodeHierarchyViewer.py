@@ -33,7 +33,7 @@ class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
 
     def refresh(self):
         dfgexec = self.__controller.getExec()
-        p = CanvasDFGExe(dfgexec)
+        p = CanvasDFGExec(dfgexec)
         self.setItem(0, 0, p)
         self.rootIndex = self.indexFromItem(p)
 
@@ -233,7 +233,7 @@ class CanvasPortInfo(object):
             return self.name
 
 
-class CanvasDFGExe(QtGui.QStandardItem):
+class CanvasDFGExec(QtGui.QStandardItem):
 
     def __init__(self, dfg, parent=None, name=None):
         self.dfgexec = dfg
