@@ -47,6 +47,8 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.setModel(self.model)
         self.setAcceptDrops(False)
         self.setDragEnabled(False)
+        self.itemDelegate = NodeHierarchyViewerItemDelegate()
+        self.setItemDelegate(self.itemDelegate)
 
         self.__dfgWidget = dfgWidget
         self.__uicontroller = dfgWidget.getUIController()
@@ -138,6 +140,7 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
 
         self.setContentsMargins(5, 5, 5, 5)
         self.setLayout(layout)
+        self.styleSheet()
 
         self.__host = host
         self.__controller = controller
@@ -156,9 +159,59 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         toolbar.addSeparator()
         return toolbar
 
+    def styleSheet(self):
+        widgetStyleSheet = """
+
+QWidget#NodeHierarchyViewerWidget QTreeView {
+    selection-background-color: black; /* Used on Mac */
+    selection-color: white; /* Used on Mac */
+    show-decoration-selected: 1;
+}
+
+QWidget#NodeHierarchyViewerWidget QTreeView::item {
+    background-color: black; /* Used on Windows */
+    color: white;
+    border-width:0 20;
+    border-image: url(D:/fabric/repositry/FabricUI/Python/Canvas/project.png) 0 0 0 20 norepeat;
+}
+
+
+
+QWidget#NodeHierarchyViewerWidget QTreeView::item[execType=0] {
+    color: black;
+}
+
+QWidget#NodeHierarchyViewerWidget QTreeView::item[execType="0"] {
+    color: black;
+}
+
+
+QWidget#NodeHierarchyViewerWidget QTreeView::item:selected {
+    color: black;
+}
+
+
+
+        """
+
+        self.setStyleSheet(widgetStyleSheet)
+
     def refresh(self, *args):
 
         self.view.refresh()
+
+
+class NodeHierarchyViewerItemDelegate(QtGui.QStyledItemDelegate):
+
+    def paint(self, painter, option, index):
+        QtGui.QStyledItemDelegate.paint(self, painter, option, index)
+        return
+
+        pen = QtGui.QPen()
+        pen.setWidth(1.0)
+        pen.setColor(QtGui.QColor(255, 255, 0))
+        painter.setPen(pen)
+        painter.drawRect(option.rect)
 
 
 class CanvasPortInfo(object):
@@ -276,6 +329,10 @@ class CanvasDFGExec(QtGui.QStandardItem):
         return self.parent.dfgexec.getNodeType(self.name)
 
     @property
+    def presetName(self):
+        return self.dfgexec.getPresetName()
+
+    @property
     def path(self):
 
         if self.parent and len(self.parent.name) > 0:
@@ -290,6 +347,10 @@ class CanvasDFGExec(QtGui.QStandardItem):
     def isGraph(self):
         return self.execType == 0
 
+    def setQtDynamicProperty(self):
+        self.setProperty("execType", self.execType)
+        self.setProperty("nodeType", self.nodeType)
+
     def _searchSubNodes(self):
 
         if not self.isGraph:
@@ -301,12 +362,13 @@ class CanvasDFGExec(QtGui.QStandardItem):
             name = self.dfgexec.getNodeName(i)
             sub_type = self.dfgexec.getNodeType(name)
 
-            if _ignoreNodeType(sub_type):
-                continue
-
             try:
-                sub_exec = CanvasDFGExe(self.dfgexec.getSubExec(name), parent=self, name=name)
-                kids.append(sub_exec)
+                if isVariableNode(sub_type):
+                    sub_exec = CanvasDFGVariable(nodeType=sub_type, parent=self, name=name)
+                    kids.append(sub_exec)
+                else:
+                    sub_exec = CanvasDFGExec(self.dfgexec.getSubExec(name), parent=self, name=name)
+                    kids.append(sub_exec)
 
             except Exception as e:
                 # TODO: handle 'backDrop': not an Inst
@@ -331,8 +393,74 @@ class CanvasDFGExec(QtGui.QStandardItem):
 
     # -------------------------------------------------------------------------
     # implement / override QtGui.QStandardItem
-    def appendRow(self, item):
-        QtGui.QStandardItem.appendRow(self, item)
+    def appendRow(self, _exec):
+
+        if _exec.isGraph:
+            execTypeLabel = 'g'  # graph
+            presetName = _exec.presetName
+
+        elif _exec.execType == 1:
+            execTypeLabel = 'f'  # function
+            presetName = _exec.presetName
+
+        elif _exec.execType == 2:
+            execTypeLabel = 'v'
+            presetName = 'get'
+
+        elif _exec.execType == 3:
+            execTypeLabel = 'v'
+            presetName = 'set'
+
+        elif _exec.execType == 4:
+            execTypeLabel = 'v'
+            presetName = 'define'
+
+        QtGui.QStandardItem.appendRow(
+            self,
+            [
+                _exec,
+                QtGui.QStandardItem(execTypeLabel),
+                QtGui.QStandardItem(presetName)
+            ]
+        )
+
+
+class CanvasDFGVariable(CanvasDFGExec):
+
+    ''' class for DFGNodeType_Var / Get / Set.
+    
+        these node can't be called from dfgexec.getSubExec(name) '''
+
+    def __init__(self, nodeType=None, parent=None, name=None):
+
+        self.name = name
+        self._nodeType = nodeType
+
+        QtGui.QStandardItem.__init__(self, self.name)
+
+        self.parent = parent
+        self.depth = self.parent.depth + 1 if self.parent else 0
+
+    @property
+    def execType(self):
+        offset = 1
+        return self.nodeType + offset
+
+    @property
+    def nodeType(self):
+        return self._nodeType
+
+
+def isVariableNode(t):
+    '''
+        DFGNodeType_Inst - 実行されるモノのインスタンス
+        DFGNodeType_Get - 変数取得ノード
+        DFGNodeType_Set - 変数設定ノード
+        DFGNodeType_Var - 変数定義ノード
+        DFGNodeType_User - ユーザノード
+    '''
+
+    return t in [1, 2, 3]
 
 
 def _ignoreNodeType(t):
