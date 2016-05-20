@@ -29,7 +29,7 @@ class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
         self.refresh()
 
     def refresh(self):
-        dfgexec = self.__controller.getExec()
+        dfgexec = self.__controller.getBinding().getExec()
         p = CanvasDFGExec(dfgexec)
         self.setItem(0, 0, p)
         self.rootIndex = self.indexFromItem(p)
