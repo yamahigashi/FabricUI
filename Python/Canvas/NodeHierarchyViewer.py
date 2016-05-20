@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import os
 from PySide import QtCore
 from PySide import QtGui
+
+
+NODE_HIERARCHY_VIEWER_QSS = os.path.join(os.path.dirname(__file__), "NodeHierarchyViewer.qss")
 
 
 class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
@@ -40,8 +44,6 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.setModel(self.model)
         self.setAcceptDrops(False)
         self.setDragEnabled(False)
-        self.itemDelegate = NodeHierarchyViewerItemDelegate()
-        self.setItemDelegate(self.itemDelegate)
 
         self.__dfgWidget = dfgWidget
         self.__uicontroller = dfgWidget.getUIController()
@@ -150,30 +152,17 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         toolbar.addSeparator()
         return toolbar
 
-    # /*
     def styleSheet(self):
-        widgetStyleSheet = """  /* */
+        try:
+            with open(NODE_HIERARCHY_VIEWER_QSS, 'r') as f:
+                self.setStyleSheet(f.read())
+        except IOError as e:
+            print e
 
-        """
-
-        self.setStyleSheet(widgetStyleSheet)
 
     def refresh(self, *args):
 
         self.view.refresh()
-
-
-class NodeHierarchyViewerItemDelegate(QtGui.QStyledItemDelegate):
-
-    def paint(self, painter, option, index):
-        QtGui.QStyledItemDelegate.paint(self, painter, option, index)
-        return
-
-        pen = QtGui.QPen()
-        pen.setWidth(1.0)
-        pen.setColor(QtGui.QColor(255, 255, 0))
-        painter.setPen(pen)
-        painter.drawRect(option.rect)
 
 
 class CanvasPortInfo(object):
@@ -390,7 +379,7 @@ class CanvasDFGExec(QtGui.QStandardItem):
 class CanvasDFGVariable(CanvasDFGExec):
 
     ''' class for DFGNodeType_Var / Get / Set.
-    
+
         these node can't be called from dfgexec.getSubExec(name) '''
 
     def __init__(self, nodeType=None, parent=None, name=None):

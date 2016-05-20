@@ -1,0 +1,31 @@
+
+QWidget#NodeHierarchyViewerWidget QHeaderView::section {
+    font-size: 10px;
+    background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(80, 80, 80, 255), stop:1 rgba(30, 30, 30, 255));
+}
+
+
+/*
+QWidget#NodeHierarchyViewerWidget QTreeView::item:!alternate:!selected{
+    background-color: rgb(220, 220, 220);
+}
+*/
+
+QWidget#NodeHierarchyViewerWidget QTreeView::item:hover {
+    background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(80, 80, 80, 255), stop:1 rgba(30, 30, 30, 255));
+}
+
+
+QWidget#NodeHierarchyViewerWidget QTreeView {
+    selection-background-color: black; /* Used on Mac */
+    selection-color: white; /* Used on Mac */
+    show-decoration-selected: 1;
+}
+
+QWidget#NodeHierarchyViewerWidget QTreeView::item:first {
+    border-width:0 0 0 20;
+    border-image: url(:/images/project.png) 0 0 0 20 norepeat;
+}
+
+
+/* vim: set ft=css: */
