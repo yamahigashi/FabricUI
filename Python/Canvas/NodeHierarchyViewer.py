@@ -20,7 +20,7 @@ class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
         self.initData()
 
     def setHeader(self):
-        self.setHorizontalHeaderLabels(['Name', 'Type', 'Preset'])
+        self.setHorizontalHeaderLabels(['Name', 'Type', "Modified", 'Preset'])
 
     def getRootIndex(self):
         return self.rootIndex
@@ -118,6 +118,10 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
 
     def __init__(self, host, controller, dfgWidget, settings, canvasWindow):
 
+        self.__host = host
+        self.__controller = controller
+        self.__dfgWidget = dfgWidget
+
         QtGui.QTreeWidget.__init__(self)
         self.view = NodeHierarchyViewerView(parent=self, dfgWidget=dfgWidget, controller=controller)
         self.setObjectName('NodeHierarchyViewerWidget')
@@ -134,10 +138,6 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         self.setContentsMargins(5, 5, 5, 5)
         self.setLayout(layout)
         self.styleSheet()
-
-        self.__host = host
-        self.__controller = controller
-        self.__dfgWidget = dfgWidget
 
     def __setupToolbar(self):
 
@@ -349,28 +349,40 @@ class CanvasDFGExec(QtGui.QStandardItem):
         if _exec.isGraph:
             execTypeLabel = 'g'  # graph
             presetName = _exec.presetName
+            if _exec.dfgexec.editWouldSplitFromPreset():
+                isSplitted = ""
+            else:
+                isSplitted = "*"
 
         elif _exec.execType == 1:
             execTypeLabel = 'f'  # function
             presetName = _exec.presetName
+            if _exec.dfgexec.editWouldSplitFromPreset():
+                isSplitted = ""
+            else:
+                isSplitted = "*"
 
         elif _exec.execType == 2:
             execTypeLabel = 'v'
             presetName = 'get'
+            isSplitted = ""
 
         elif _exec.execType == 3:
             execTypeLabel = 'v'
             presetName = 'set'
+            isSplitted = ""
 
         elif _exec.execType == 4:
             execTypeLabel = 'v'
             presetName = 'define'
+            isSplitted = ""
 
         QtGui.QStandardItem.appendRow(
             self,
             [
                 _exec,
                 QtGui.QStandardItem(execTypeLabel),
+                QtGui.QStandardItem(isSplitted),
                 QtGui.QStandardItem(presetName)
             ]
         )
