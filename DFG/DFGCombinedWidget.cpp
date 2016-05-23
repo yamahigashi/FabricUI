@@ -222,33 +222,32 @@ void DFGCombinedWidget::onGraphSet(FabricUI::GraphView::Graph * graph)
 {
   if(graph != m_setGraph)
   {
-    if(m_dfgWidget->isEditable())
-    {
-      graph->defineHotkey(Qt::Key_Delete,     Qt::NoModifier,       DFGHotkeys::DELETE_1);
-      graph->defineHotkey(Qt::Key_Backspace,  Qt::NoModifier,       DFGHotkeys::DELETE_2);
-      graph->defineHotkey(Qt::Key_F,          Qt::NoModifier,       DFGHotkeys::FRAME_SELECTED);
-      graph->defineHotkey(Qt::Key_A,          Qt::NoModifier,       DFGHotkeys::FRAME_ALL);
-      graph->defineHotkey(Qt::Key_Tab,        Qt::NoModifier,       DFGHotkeys::TAB_SEARCH);
-      graph->defineHotkey(Qt::Key_A,          Qt::ControlModifier,  DFGHotkeys::SELECT_ALL);
-      graph->defineHotkey(Qt::Key_D,          Qt::NoModifier,       DFGHotkeys::DISCONNECT_ALL_PORTS);
-      graph->defineHotkey(Qt::Key_C,          Qt::ControlModifier,  DFGHotkeys::COPY);
-      graph->defineHotkey(Qt::Key_X,          Qt::ControlModifier,  DFGHotkeys::CUT);
-      graph->defineHotkey(Qt::Key_V,          Qt::ControlModifier,  DFGHotkeys::PASTE);
-      graph->defineHotkey(Qt::Key_Tab,        Qt::ControlModifier,  DFGHotkeys::TOGGLE_SIDE_PANEL);
-      graph->defineHotkey(Qt::Key_F2,         Qt::NoModifier,       DFGHotkeys::EDIT_PROPERTIES);
-      graph->defineHotkey(Qt::Key_R,          Qt::ControlModifier,  DFGHotkeys::RELAX_NODES);
-      graph->defineHotkey(Qt::Key_0,          Qt::ControlModifier,  DFGHotkeys::RESET_ZOOM);
-      graph->defineHotkey(Qt::Key_1,          Qt::NoModifier,       DFGHotkeys::COLLAPSE_LEVEL_1);
-      graph->defineHotkey(Qt::Key_2,          Qt::NoModifier,       DFGHotkeys::COLLAPSE_LEVEL_2);
-      graph->defineHotkey(Qt::Key_3,          Qt::NoModifier,       DFGHotkeys::COLLAPSE_LEVEL_3);
+    graph->defineHotkey(Qt::Key_Delete,     Qt::NoModifier,       DFGHotkeys::DELETE_1);
+    graph->defineHotkey(Qt::Key_Backspace,  Qt::NoModifier,       DFGHotkeys::DELETE_2);
+    //                                                            DFGHotkeys::EXECUTE);
+    graph->defineHotkey(Qt::Key_F,          Qt::NoModifier,       DFGHotkeys::FRAME_SELECTED);
+    graph->defineHotkey(Qt::Key_A,          Qt::NoModifier,       DFGHotkeys::FRAME_ALL);
+    graph->defineHotkey(Qt::Key_Tab,        Qt::NoModifier,       DFGHotkeys::TAB_SEARCH);
+    graph->defineHotkey(Qt::Key_Tab,        Qt::ControlModifier,  DFGHotkeys::TOGGLE_SIDE_PANEL);
+    graph->defineHotkey(Qt::Key_A,          Qt::ControlModifier,  DFGHotkeys::SELECT_ALL);
+    graph->defineHotkey(Qt::Key_D,          Qt::NoModifier,       DFGHotkeys::DISCONNECT_ALL_PORTS);
+    graph->defineHotkey(Qt::Key_C,          Qt::ControlModifier,  DFGHotkeys::COPY);
+    graph->defineHotkey(Qt::Key_V,          Qt::ControlModifier,  DFGHotkeys::PASTE);
+    graph->defineHotkey(Qt::Key_X,          Qt::ControlModifier,  DFGHotkeys::CUT);
+    //                                                            DFGHotkeys::NEW_SCENE);
+    //                                                            DFGHotkeys::OPEN_SCENE);
+    //                                                            DFGHotkeys::SAVE_SCENE);
+    graph->defineHotkey(Qt::Key_F2,         Qt::NoModifier,       DFGHotkeys::EDIT_PROPERTIES);
+    graph->defineHotkey(Qt::Key_R,          Qt::ControlModifier,  DFGHotkeys::RELAX_NODES);
+    //                                                            DFGHotkeys::TOGGLE_MANIPULATION);
+    graph->defineHotkey(Qt::Key_0,          Qt::ControlModifier,  DFGHotkeys::RESET_ZOOM);
+    graph->defineHotkey(Qt::Key_1,          Qt::NoModifier,       DFGHotkeys::COLLAPSE_LEVEL_1);
+    graph->defineHotkey(Qt::Key_2,          Qt::NoModifier,       DFGHotkeys::COLLAPSE_LEVEL_2);
+    graph->defineHotkey(Qt::Key_3,          Qt::NoModifier,       DFGHotkeys::COLLAPSE_LEVEL_3);
 
-      QObject::connect(graph, SIGNAL(hotkeyPressed(Qt::Key, Qt::KeyboardModifier, QString)),
-        this, SLOT(onHotkeyPressed(Qt::Key, Qt::KeyboardModifier, QString)));
-      QObject::connect(graph, SIGNAL(nodeInspectRequested(FabricUI::GraphView::Node*)), 
-        this, SLOT(onNodeInspectRequested(FabricUI::GraphView::Node*)));
-      QObject::connect(graph, SIGNAL(nodeEditRequested(FabricUI::GraphView::Node*)), 
-        this, SLOT(onNodeEditRequested(FabricUI::GraphView::Node*)));
-    }
+    QObject::connect(graph, SIGNAL(nodeEditRequested(FabricUI::GraphView::Node*)),
+      this, SLOT(onNodeEditRequested(FabricUI::GraphView::Node*)));
+
     m_setGraph = graph;
   }
 }
