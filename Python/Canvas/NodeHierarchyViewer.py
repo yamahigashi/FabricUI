@@ -111,6 +111,21 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.__controller.frameSelectedNodes()
         # self.__dfgWidget.onNodeEditRequested(n)
 
+    def showHide(self, num):
+        if self.isColumnHidden(num):
+            self.showColumn(num)
+        else:
+            self.hideColumn(num)
+
+    def showHideType(self):
+        self.showHide(1)
+
+    def showHideModified(self):
+        self.showHide(2)
+
+    def showHidePreset(self):
+        self.showHide(3)
+
 
 class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
 
@@ -141,14 +156,34 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
 
     def __setupToolbar(self):
 
-        optSortOrderAlphabet = QtGui.QAction("Option", self)
-
         toolbar = QtGui.QMenuBar()
-        modeMenu = toolbar.addMenu('Mode')
+        # modeMenu = toolbar.addMenu('Mode')
+        toolbar.addMenu('Mode')
         viewMenu = toolbar.addMenu('View')
-        filterMenu = toolbar.addMenu('Filter')
+        # filterMenu = toolbar.addMenu('Filter')
+        toolbar.addMenu('Filter')
+
+        # solt order
+        optSortOrderAlphabet = QtGui.QAction("sort order alphabet", self, checkable=True)
+        optSortOrderDefault = QtGui.QAction("sort order default", self, checkable=True)
+
+        # filter column
+        optFilterColumnType = QtGui.QAction("show column type", self, checkable=True, checked=True)
+        optFilterColumnType.triggered.connect(self.view.showHideType)
+        optFilterColumnModified = QtGui.QAction("show column modified", self, checkable=True, checked=True)
+        optFilterColumnModified.triggered.connect(self.view.showHideModified)
+        optFilterColumnPreset = QtGui.QAction("show column preset", self, checkable=True, checked=True)
+        optFilterColumnPreset.triggered.connect(self.view.showHidePreset)
 
         viewMenu.addAction(optSortOrderAlphabet)
+        viewMenu.addAction(optSortOrderDefault)
+
+        viewMenu.addSeparator()
+
+        viewMenu.addAction(optFilterColumnType)
+        viewMenu.addAction(optFilterColumnModified)
+        viewMenu.addAction(optFilterColumnPreset)
+
         toolbar.addSeparator()
         return toolbar
 
@@ -158,7 +193,6 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
                 self.setStyleSheet(f.read())
         except IOError as e:
             print e
-
 
     def refresh(self, *args):
 
@@ -415,36 +449,10 @@ class CanvasDFGVariable(CanvasDFGExec):
 
 
 def isVariableNode(t):
-    '''
-        DFGNodeType_Inst - 実行されるモノのインスタンス
-        DFGNodeType_Get - 変数取得ノード
-        DFGNodeType_Set - 変数設定ノード
-        DFGNodeType_Var - 変数定義ノード
-        DFGNodeType_User - ユーザノード
-    '''
 
     return t in [1, 2, 3]
 
 
 def _ignoreNodeType(t):
-    '''
-        DFGNodeType_Inst - 実行されるモノのインスタンス
-        DFGNodeType_Get - 変数取得ノード
-        DFGNodeType_Set - 変数設定ノード
-        DFGNodeType_Var - 変数定義ノード
-        DFGNodeType_User - ユーザノード
-    '''
 
     return t not in [0, 4]
-
-
-def dump(n):
-
-    for k in n.subNodes:
-
-        print "	" * k.depth, ">", k.name
-
-        for p in k.ports:
-            print "	" * (k.depth + 1), p.name
-
-        dump(k)
