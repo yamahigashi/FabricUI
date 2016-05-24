@@ -31,8 +31,56 @@ class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
     def refresh(self):
         dfgexec = self.__controller.getBinding().getExec()
         p = CanvasDFGExec(dfgexec)
+        p.setFlags(QtCore.Qt.ItemIsEnabled)
         self.setItem(0, 0, p)
         self.rootIndex = self.indexFromItem(p)
+
+
+class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
+
+    def __init__(self):
+        QtGui.QSortFilterProxyModel.__init__(self)
+
+        self.resetFilters()
+
+    def resetFilters(self):
+        self.doOnType = [True, True, True]
+        self.doOnModified = False
+        self.doOnPreset = False
+
+        self.filterStringType = ["g", "f", "v"]
+        self.filterStringModified = ''
+        self.filterStringPreset = ''
+
+    def filterAcceptsRow(self, sourceRow, sourceParent):
+        if sourceParent.row() == -1:
+            return True
+
+        id = self.sourceModel().index(sourceRow, 0, sourceParent)
+        item = self.sourceModel().itemFromIndex(id)
+
+        if item.hasChildren():
+            return True
+
+        if True in self.doOnType and self.filterStringType:
+            id = self.sourceModel().index(sourceRow, 1, sourceParent)
+            if self.sourceModel().data(id) in self.filterStringType:
+                return True
+
+        if self.doOnModified and self.filterStringModified:
+            id = self.sourceModel().index(sourceRow, 2, sourceParent)
+            if self.filterStringModified in self.sourceModel().data(id):
+                return True
+
+        if self.doOnPreset and self.filterStringPreset:
+            id = self.sourceModel().index(sourceRow, 3, sourceParent)
+            if self.filterStringPreset == self.sourceModel().data(id):
+                return True
+
+        if True in self.doOnType or self.doOnModified or self.doOnPreset:
+            return False
+
+        return True
 
 
 class NodeHierarchyViewerView(QtGui.QTreeView):
@@ -41,7 +89,11 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         super(NodeHierarchyViewerView, self).__init__(parent)
 
         self.model = NodeHierarchyViewerModel(controller, None)
-        self.setModel(self.model)
+        self.proxy = NodeHierarchyViewerProxyModel()
+        self.proxy.setSourceModel(self.model)
+        self.setModel(self.proxy)
+        self.resizeColumnToContents(1)
+        self.resizeColumnToContents(2)
         self.setAcceptDrops(False)
         self.setDragEnabled(False)
 
@@ -49,6 +101,7 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.__uicontroller = dfgWidget.getUIController()
         self.__controller = controller
 
+        self.expanded.connect(self.onExpanded)
         self.connect(self.selectionModel(),
                      QtCore.SIGNAL("selectionChanged(QItemSelection, QItemSelection)"),
                      self.onSelectionChanged)
@@ -56,7 +109,9 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
     def refresh(self):
         self.model.refresh()
         self.rootIndex = self.model.getRootIndex()
-        self.setRootIndex(self.rootIndex)
+        # self.setRootIndex(self.rootIndex)
+        self.expandToDepth(0)
+        self.resizeColumnToContents(0)
 
     def getFullPathFromId(self, id):
         def hasParent(id):
@@ -65,6 +120,9 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
                 return False
             else:
                 return True
+
+        if not self.model.data(id):
+            return
 
         pathParts = [str(self.model.data(id))]
         while hasParent(id):
@@ -76,8 +134,10 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
 
     def onSelectionChanged(self, newSel, oldSel):
 
-        id = newSel.indexes()[0]
+        id = self.proxy.mapSelectionToSource(newSel).indexes()[0]
         fullPath = self.getFullPathFromId(id)
+        if not fullPath:
+            return
         name = str(self.model.data(id))
 
         # compare "graph's current path" with "selected node's parent path",
@@ -111,20 +171,67 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.__controller.frameSelectedNodes()
         # self.__dfgWidget.onNodeEditRequested(n)
 
-    def showHide(self, num):
-        if self.isColumnHidden(num):
+    def onExpanded(self, id):
+        self.resizeColumnToContents(0)
+
+    def filterColumn(self, colNum):
+        # self.expandToDepth(0)
+        self.proxy.invalidateFilter()
+
+    def filterType(self, num, id, checked):
+        if checked:
+            self.proxy.doOnType[num] = True
+            if id not in self.proxy.filterStringType:
+                self.proxy.filterStringType.append(id)
+        else:
+            self.proxy.doOnType[num] = False
+            if id in self.proxy.filterStringType:
+                self.proxy.filterStringType.remove(id)
+
+        self.filterColumn(1)
+
+    def filterTypeGraph(self, checked):
+        self.filterType(0, "g", checked)
+
+    def filterTypeFunc(self, checked):
+        self.filterType(0, "f", checked)
+
+    def filterTypeVar(self, checked):
+        self.filterType(0, "v", checked)
+
+    def filterModified(self, checked):
+        if checked:
+            self.proxy.doOnModified = True
+            self.proxy.filterStringModified = "*"
+        else:
+            self.proxy.doOnModified = False
+            self.proxy.filterStringModified = ""
+        self.filterColumn(2)
+
+    def filterPreset(self, checked):
+        if checked:
+            self.proxy.doOnPreset = True
+            self.proxy.filterStringPreset = "set"
+        else:
+            self.proxy.doOnPreset = False
+            self.proxy.filterStringPreset = ""
+
+        self.filterColumn(3)
+
+    def showHide(self, num, checked):
+        if checked:
             self.showColumn(num)
         else:
             self.hideColumn(num)
 
-    def showHideType(self):
-        self.showHide(1)
+    def showHideType(self, checked):
+        self.showHide(1, checked)
 
-    def showHideModified(self):
-        self.showHide(2)
+    def showHideModified(self, checked):
+        self.showHide(2, checked)
 
-    def showHidePreset(self):
-        self.showHide(3)
+    def showHidePreset(self, checked):
+        self.showHide(3, checked)
 
 
 class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
@@ -160,29 +267,45 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         # modeMenu = toolbar.addMenu('Mode')
         toolbar.addMenu('Mode')
         viewMenu = toolbar.addMenu('View')
-        # filterMenu = toolbar.addMenu('Filter')
-        toolbar.addMenu('Filter')
+        filterMenu = toolbar.addMenu('Filter')
 
         # solt order
         optSortOrderAlphabet = QtGui.QAction("sort order alphabet", self, checkable=True)
         optSortOrderDefault = QtGui.QAction("sort order default", self, checkable=True)
 
         # filter column
-        optFilterColumnType = QtGui.QAction("show column type", self, checkable=True, checked=True)
-        optFilterColumnType.triggered.connect(self.view.showHideType)
-        optFilterColumnModified = QtGui.QAction("show column modified", self, checkable=True, checked=True)
-        optFilterColumnModified.triggered.connect(self.view.showHideModified)
-        optFilterColumnPreset = QtGui.QAction("show column preset", self, checkable=True, checked=True)
-        optFilterColumnPreset.triggered.connect(self.view.showHidePreset)
+        optToggleColumnType = QtGui.QAction("show column type", self, checkable=True, checked=True)
+        optToggleColumnType.toggled.connect(self.view.showHideType)
+        optToggleColumnModified = QtGui.QAction("show column modified", self, checkable=True, checked=True)
+        optToggleColumnModified.toggled.connect(self.view.showHideModified)
+        optToggleColumnPreset = QtGui.QAction("show column preset", self, checkable=True, checked=True)
+        optToggleColumnPreset.toggled.connect(self.view.showHidePreset)
+
+        # filter column
+        optFilterColumnTypeMenu = filterMenu.addMenu('filter by Type')
+        optFilterColumnTypeGraph = QtGui.QAction("(G)raph", self, checkable=True, checked=True)
+        optFilterColumnTypeGraph.toggled.connect(self.view.filterTypeGraph)
+        optFilterColumnTypeFunc = QtGui.QAction("(F)unc", self, checkable=True, checked=True)
+        optFilterColumnTypeFunc.toggled.connect(self.view.filterTypeFunc)
+        optFilterColumnTypeVar = QtGui.QAction("(V)ariable", self, checkable=True, checked=True)
+        optFilterColumnTypeVar.toggled.connect(self.view.filterTypeVar)
+        optFilterColumnModified = QtGui.QAction("filter column modified", self, checkable=True, checked=False)
+        optFilterColumnModified.toggled.connect(self.view.filterModified)
+        optFilterColumnPreset = QtGui.QAction("filter column preset", self, checkable=True, checked=False)
+        optFilterColumnPreset.toggled.connect(self.view.filterPreset)
 
         viewMenu.addAction(optSortOrderAlphabet)
         viewMenu.addAction(optSortOrderDefault)
-
         viewMenu.addSeparator()
+        viewMenu.addAction(optToggleColumnType)
+        viewMenu.addAction(optToggleColumnModified)
+        viewMenu.addAction(optToggleColumnPreset)
 
-        viewMenu.addAction(optFilterColumnType)
-        viewMenu.addAction(optFilterColumnModified)
-        viewMenu.addAction(optFilterColumnPreset)
+        optFilterColumnTypeMenu .addAction(optFilterColumnTypeGraph)
+        optFilterColumnTypeMenu .addAction(optFilterColumnTypeFunc)
+        optFilterColumnTypeMenu .addAction(optFilterColumnTypeVar)
+        filterMenu.addAction(optFilterColumnModified)
+        filterMenu.addAction(optFilterColumnPreset)
 
         toolbar.addSeparator()
         return toolbar
@@ -281,10 +404,14 @@ class CanvasDFGExec(QtGui.QStandardItem):
         else:
             self.name = self.dfgexec.getTitle()
 
+        if not self.name:
+            self.name = "scene_root"
+
         QtGui.QStandardItem.__init__(self, self.name)
 
         self.parent = parent
         self.depth = self.parent.depth + 1 if self.parent else 0
+        self.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
 
         self.subNodes = self._searchSubNodes() or []
         self.ports = self._searchPorts() or []
@@ -411,15 +538,12 @@ class CanvasDFGExec(QtGui.QStandardItem):
             presetName = 'define'
             isSplitted = ""
 
-        QtGui.QStandardItem.appendRow(
-            self,
-            [
-                _exec,
-                QtGui.QStandardItem(execTypeLabel),
-                QtGui.QStandardItem(isSplitted),
-                QtGui.QStandardItem(presetName)
-            ]
-        )
+        a = QtGui.QStandardItem(execTypeLabel)
+        b = QtGui.QStandardItem(isSplitted)
+        c = QtGui.QStandardItem(presetName)
+        for x in [a, b, c]:
+            x.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
+        QtGui.QStandardItem.appendRow(self, [_exec, a, b, c])
 
 
 class CanvasDFGVariable(CanvasDFGExec):
