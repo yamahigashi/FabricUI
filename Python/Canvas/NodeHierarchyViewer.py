@@ -58,29 +58,27 @@ class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
 
         id = self.sourceModel().index(sourceRow, 0, sourceParent)
         item = self.sourceModel().itemFromIndex(id)
+        flag = True
 
         if item.hasChildren():
             return True
 
         if True in self.doOnType and self.filterStringType:
             id = self.sourceModel().index(sourceRow, 1, sourceParent)
-            if self.sourceModel().data(id) in self.filterStringType:
-                return True
+            if self.sourceModel().data(id) not in self.filterStringType:
+                flag = False
 
         if self.doOnModified and self.filterStringModified:
             id = self.sourceModel().index(sourceRow, 2, sourceParent)
-            if self.filterStringModified in self.sourceModel().data(id):
-                return True
+            if self.filterStringModified not in self.sourceModel().data(id):
+                flag = False
 
         if self.doOnPreset and self.filterStringPreset:
             id = self.sourceModel().index(sourceRow, 3, sourceParent)
-            if self.filterStringPreset == self.sourceModel().data(id):
-                return True
+            if self.filterStringPreset != self.sourceModel().data(id):
+                flag = False
 
-        if True in self.doOnType or self.doOnModified or self.doOnPreset:
-            return False
-
-        return True
+        return flag
 
 
 class NodeHierarchyViewerView(QtGui.QTreeView):
