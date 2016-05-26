@@ -321,7 +321,7 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         optFilterColumnTypeFunc.toggled.connect(self.view.filterType)
         optFilterColumnTypeVar = QtGui.QAction("(V)ariable", self, checkable=True, checked=True)
         optFilterColumnTypeVar.toggled.connect(self.view.filterType)
-        optFilterColumnModified = QtGui.QAction("filter column modified", self, checkable=True, checked=False)
+        optFilterColumnModified = QtGui.QAction("show only modified", self, checkable=True, checked=False)
         optFilterColumnModified.toggled.connect(self.view.filterModified)
 
         viewMenu.addAction(optSortOrderAlphabet)
