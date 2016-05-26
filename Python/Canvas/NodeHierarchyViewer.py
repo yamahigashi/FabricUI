@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+from collections import namedtuple
 from PySide import QtCore
 from PySide import QtGui
 
@@ -16,7 +17,6 @@ class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
         QtGui.QStandardItemModel.__init__(self)
 
         self.events = events
-        self.setHeader()
         self.initData()
 
     def setHeader(self):
@@ -29,11 +29,21 @@ class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
         self.refresh()
 
     def refresh(self):
+        self.clear()
+        self.setHeader()
         dfgexec = self.__controller.getBinding().getExec()
-        p = CanvasDFGExec(dfgexec)
+        self.presetNames = []
+        p = CanvasDFGExec(dfgexec, model=self)
         p.setFlags(QtCore.Qt.ItemIsEnabled)
         self.setItem(0, 0, p)
         self.rootIndex = self.indexFromItem(p)
+
+    def appendPresetName(self, name):
+        if name and name not in self.presetNames:
+            self.presetNames.append(name)
+
+    def getPresetNameList(self):
+        return self.presetNames
 
 
 class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
@@ -41,16 +51,19 @@ class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
     def __init__(self):
         QtGui.QSortFilterProxyModel.__init__(self)
 
+        self.filterBase = namedtuple("FilterBase", "do str")
         self.resetFilters()
 
     def resetFilters(self):
-        self.doOnType = [True, True, True]
-        self.doOnModified = False
-        self.doOnPreset = False
+        self.filterType = {
+            "g": True,
+            "f": True,
+            "v": True
+        }
+        self.filterPreset = {}
 
-        self.filterStringType = ["g", "f", "v"]
+        self.doOnModified = False
         self.filterStringModified = ''
-        self.filterStringPreset = ''
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         if sourceParent.row() == -1:
@@ -60,12 +73,15 @@ class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
         item = self.sourceModel().itemFromIndex(id)
         flag = True
 
-        if item.hasChildren():
+        if item and item.hasChildren():
             return True
 
-        if True in self.doOnType and self.filterStringType:
+        if not item:
+            return False
+
+        if False in self.filterType.values():
             id = self.sourceModel().index(sourceRow, 1, sourceParent)
-            if self.sourceModel().data(id) not in self.filterStringType:
+            if self.sourceModel().data(id) not in [k for k, v in self.filterType.items() if v]:
                 flag = False
 
         if self.doOnModified and self.filterStringModified:
@@ -73,12 +89,25 @@ class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
             if self.filterStringModified not in self.sourceModel().data(id):
                 flag = False
 
-        if self.doOnPreset and self.filterStringPreset:
+        if False in self.filterPreset.values():
             id = self.sourceModel().index(sourceRow, 3, sourceParent)
-            if self.filterStringPreset != self.sourceModel().data(id):
+            data = self.sourceModel().data(id)
+            if not data:
+                flag = True
+            elif data not in [k for k, v in self.filterPreset.items() if v]:
                 flag = False
 
         return flag
+
+    def updatePresetFilter(self):
+        self.resetFilters()
+        presets = self.sourceModel().getPresetNameList()
+        for p in presets:
+            self.filterPreset[p] = True
+
+    def checkFilterPreset(self, flag):
+        for k, v in self.filterPreset.items():
+            self.filterPreset[k] = flag
 
 
 class NodeHierarchyViewerView(QtGui.QTreeView):
@@ -106,10 +135,11 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
 
     def refresh(self):
         self.model.refresh()
+        self.proxy.updatePresetFilter()
         self.rootIndex = self.model.getRootIndex()
-        # self.setRootIndex(self.rootIndex)
         self.expandToDepth(0)
         self.resizeColumnToContents(0)
+        self.parent().satisfyFilterPreset(self.model.getPresetNameList())
 
     def getFullPathFromId(self, id):
         def hasParent(id):
@@ -132,7 +162,11 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
 
     def onSelectionChanged(self, newSel, oldSel):
 
-        id = self.proxy.mapSelectionToSource(newSel).indexes()[0]
+        id = self.proxy.mapSelectionToSource(newSel).indexes()
+        if not id:
+            return
+
+        id = id[0]
         fullPath = self.getFullPathFromId(id)
         if not fullPath:
             return
@@ -176,26 +210,21 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         # self.expandToDepth(0)
         self.proxy.invalidateFilter()
 
-    def filterType(self, num, id, checked):
-        if checked:
-            self.proxy.doOnType[num] = True
-            if id not in self.proxy.filterStringType:
-                self.proxy.filterStringType.append(id)
+    def filterType(self, checked):
+        label = self.sender().text()
+        if "(G)" in label:
+            id = "g"
+        elif "(F)" in label:
+            id = "f"
         else:
-            self.proxy.doOnType[num] = False
-            if id in self.proxy.filterStringType:
-                self.proxy.filterStringType.remove(id)
+            id = "v"
+
+        if checked:
+            self.proxy.filterType[id] = True
+        else:
+            self.proxy.filterType[id] = False
 
         self.filterColumn(1)
-
-    def filterTypeGraph(self, checked):
-        self.filterType(0, "g", checked)
-
-    def filterTypeFunc(self, checked):
-        self.filterType(0, "f", checked)
-
-    def filterTypeVar(self, checked):
-        self.filterType(0, "v", checked)
 
     def filterModified(self, checked):
         if checked:
@@ -207,13 +236,18 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.filterColumn(2)
 
     def filterPreset(self, checked):
-        if checked:
-            self.proxy.doOnPreset = True
-            self.proxy.filterStringPreset = "set"
-        else:
-            self.proxy.doOnPreset = False
-            self.proxy.filterStringPreset = ""
+        label = self.sender().text()
+        self.proxy.filterPreset[label] = checked
+        self.filterColumn(3)
 
+    def filterPresetAll(self):
+        self.proxy.checkFilterPreset(True)
+        self.parent().checkFilterPreset(True)
+        self.filterColumn(3)
+
+    def filterPresetNone(self):
+        self.proxy.checkFilterPreset(False)
+        self.parent().checkFilterPreset(False)
         self.filterColumn(3)
 
     def showHide(self, num, checked):
@@ -282,15 +316,13 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         # filter column
         optFilterColumnTypeMenu = filterMenu.addMenu('filter by Type')
         optFilterColumnTypeGraph = QtGui.QAction("(G)raph", self, checkable=True, checked=True)
-        optFilterColumnTypeGraph.toggled.connect(self.view.filterTypeGraph)
+        optFilterColumnTypeGraph.toggled.connect(self.view.filterType)
         optFilterColumnTypeFunc = QtGui.QAction("(F)unc", self, checkable=True, checked=True)
-        optFilterColumnTypeFunc.toggled.connect(self.view.filterTypeFunc)
+        optFilterColumnTypeFunc.toggled.connect(self.view.filterType)
         optFilterColumnTypeVar = QtGui.QAction("(V)ariable", self, checkable=True, checked=True)
-        optFilterColumnTypeVar.toggled.connect(self.view.filterTypeVar)
+        optFilterColumnTypeVar.toggled.connect(self.view.filterType)
         optFilterColumnModified = QtGui.QAction("filter column modified", self, checkable=True, checked=False)
         optFilterColumnModified.toggled.connect(self.view.filterModified)
-        optFilterColumnPreset = QtGui.QAction("filter column preset", self, checkable=True, checked=False)
-        optFilterColumnPreset.toggled.connect(self.view.filterPreset)
 
         viewMenu.addAction(optSortOrderAlphabet)
         viewMenu.addAction(optSortOrderDefault)
@@ -299,14 +331,45 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         viewMenu.addAction(optToggleColumnModified)
         viewMenu.addAction(optToggleColumnPreset)
 
-        optFilterColumnTypeMenu .addAction(optFilterColumnTypeGraph)
-        optFilterColumnTypeMenu .addAction(optFilterColumnTypeFunc)
-        optFilterColumnTypeMenu .addAction(optFilterColumnTypeVar)
+        optFilterColumnTypeMenu.addAction(optFilterColumnTypeGraph)
+        optFilterColumnTypeMenu.addAction(optFilterColumnTypeFunc)
+        optFilterColumnTypeMenu.addAction(optFilterColumnTypeVar)
         filterMenu.addAction(optFilterColumnModified)
-        filterMenu.addAction(optFilterColumnPreset)
+        self.optFilterColumnPresetMenu = filterMenu.addMenu('filter by Preset name')
 
         toolbar.addSeparator()
         return toolbar
+
+    def satisfyFilterPreset(self, items):
+        self.optFilterColumnPresetMenu.clear()
+
+        action = QtGui.QAction("Check All", self)
+        action.triggered.connect(self.view.filterPresetAll)
+        self.optFilterColumnPresetMenu.addAction(action)
+        action = QtGui.QAction("Check None", self)
+        action.triggered.connect(self.view.filterPresetNone)
+        self.optFilterColumnPresetMenu.addAction(action)
+        self.optFilterColumnPresetMenu.addSeparator()
+
+        for p in sorted(items):
+            action = QtGui.QAction(p, self, checkable=True, checked=True)
+            action.toggled.connect(self.view.filterPreset)
+            self.optFilterColumnPresetMenu.addAction(action)
+
+        self.optFilterColumnPresetMenu.addSeparator()
+        action = QtGui.QAction("set", self, checkable=True, checked=True)
+        action.toggled.connect(self.view.filterPreset)
+        self.optFilterColumnPresetMenu.addAction(action)
+        action = QtGui.QAction("get", self, checkable=True, checked=True)
+        action.toggled.connect(self.view.filterPreset)
+        self.optFilterColumnPresetMenu.addAction(action)
+        action = QtGui.QAction("define", self, checkable=True, checked=True)
+        action.toggled.connect(self.view.filterPreset)
+        self.optFilterColumnPresetMenu.addAction(action)
+
+    def checkFilterPreset(self, flag):
+        for a in self.optFilterColumnPresetMenu.actions():
+            a.setChecked(flag)
 
     def styleSheet(self):
         try:
@@ -394,7 +457,7 @@ class CanvasPortInfo(object):
 
 class CanvasDFGExec(QtGui.QStandardItem):
 
-    def __init__(self, dfg, parent=None, name=None):
+    def __init__(self, dfg, parent=None, name=None, model=None):
         self.dfgexec = dfg
 
         if name:
@@ -407,12 +470,16 @@ class CanvasDFGExec(QtGui.QStandardItem):
 
         QtGui.QStandardItem.__init__(self, self.name)
 
+        self.model = model
         self.parent = parent
         self.depth = self.parent.depth + 1 if self.parent else 0
         self.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
 
         self.subNodes = self._searchSubNodes() or []
         self.ports = self._searchPorts() or []
+
+        if self.model:
+            self.model.appendPresetName(self.presetName)
 
     @property
     def execType(self):
@@ -477,7 +544,7 @@ class CanvasDFGExec(QtGui.QStandardItem):
                     sub_exec = CanvasDFGVariable(nodeType=sub_type, parent=self, name=name)
                     kids.append(sub_exec)
                 else:
-                    sub_exec = CanvasDFGExec(self.dfgexec.getSubExec(name), parent=self, name=name)
+                    sub_exec = CanvasDFGExec(self.dfgexec.getSubExec(name), parent=self, name=name, model=self.model)
                     kids.append(sub_exec)
 
             except Exception as e:
