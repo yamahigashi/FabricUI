@@ -214,6 +214,7 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
             print 'not found node, not match hierarchy?'
             return
 
+        self.__dfgWidget.repaint()
         self.__controller.clearSelection()
         self.__controller.selectNode(n, True)
         self.__controller.frameSelectedNodes()
