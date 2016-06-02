@@ -65,40 +65,6 @@ class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
         self.doOnModified = False
         self.filterStringModified = ''
 
-    def filterAcceptsRow(self, sourceRow, sourceParent):
-        if sourceParent.row() == -1:
-            return True
-
-        id = self.sourceModel().index(sourceRow, 0, sourceParent)
-        item = self.sourceModel().itemFromIndex(id)
-        flag = True
-
-        if item and item.hasChildren():
-            return True
-
-        if not item:
-            return False
-
-        if False in self.filterType.values():
-            id = self.sourceModel().index(sourceRow, 1, sourceParent)
-            if self.sourceModel().data(id) not in [k for k, v in self.filterType.items() if v]:
-                flag = False
-
-        if self.doOnModified and self.filterStringModified:
-            id = self.sourceModel().index(sourceRow, 2, sourceParent)
-            if self.filterStringModified not in self.sourceModel().data(id):
-                flag = False
-
-        if False in self.filterPreset.values():
-            id = self.sourceModel().index(sourceRow, 3, sourceParent)
-            data = self.sourceModel().data(id)
-            if not data:
-                flag = True
-            elif data not in [k for k, v in self.filterPreset.items() if v]:
-                flag = False
-
-        return flag
-
     def updatePresetFilter(self):
         self.resetFilters()
         presets = self.sourceModel().getPresetNameList()
@@ -108,6 +74,52 @@ class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
     def checkFilterPreset(self, flag):
         for k, v in self.filterPreset.items():
             self.filterPreset[k] = flag
+
+    # -----------------------------------------------------------------------------------------
+    # reimplement QSortFilterProxyModel
+    # -----------------------------------------------------------------------------------------
+
+    def filterAcceptsRow(self, sourceRow, sourceParent):
+
+        def _innerCheck(row, parent):
+            res = True
+            if False in self.filterType.values():
+                id = self.sourceModel().index(row, 1, parent)
+                if self.sourceModel().data(id) not in [k for k, v in self.filterType.items() if v]:
+                    res = False
+
+            if self.doOnModified and self.filterStringModified:
+                id = self.sourceModel().index(row, 2, parent)
+                if self.filterStringModified not in self.sourceModel().data(id):
+                    res = False
+
+            if False in self.filterPreset.values():
+                id = self.sourceModel().index(row, 3, parent)
+                data = self.sourceModel().data(id)
+                if not data:
+                    res = True
+                elif data not in [k for k, v in self.filterPreset.items() if v]:
+                    res = False
+
+            return res
+
+        if sourceParent.row() == -1:
+            return True
+
+        index = self.sourceModel().index(sourceRow, 0, sourceParent)
+
+        if not index.isValid():
+            return False
+
+        if _innerCheck(sourceRow, sourceParent):
+            return True
+
+        rows = self.sourceModel().rowCount(index)
+        for row in xrange(rows):
+            if self.filterAcceptsRow(row, index):
+                return True
+
+        return False
 
 
 class NodeHierarchyViewerView(QtGui.QTreeView):
@@ -140,6 +152,10 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.expandToDepth(0)
         self.resizeColumnToContents(0)
         self.parent().satisfyFilterPreset(self.model.getPresetNameList())
+
+    def collapseAll(self):
+        super(NodeHierarchyViewerView, self).collapseAll()
+        self.expandToDepth(0)
 
     def getFullPathFromId(self, id):
         def hasParent(id):
@@ -296,10 +312,16 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
     def __setupToolbar(self):
 
         toolbar = QtGui.QMenuBar()
-        # modeMenu = toolbar.addMenu('Mode')
-        toolbar.addMenu('Mode')
+        editMenu = toolbar.addMenu('Edit')
         viewMenu = toolbar.addMenu('View')
         filterMenu = toolbar.addMenu('Filter')
+
+        expandAll = QtGui.QAction("expand all", self)
+        expandAll.triggered.connect(self.view.expandAll)
+        collapseAll = QtGui.QAction("collapse all", self)
+        collapseAll.triggered.connect(self.view.collapseAll)
+        editMenu.addAction(expandAll)
+        editMenu.addAction(collapseAll)
 
         # solt order
         optSortOrderAlphabet = QtGui.QAction("sort order alphabet", self, checkable=True)
@@ -476,7 +498,7 @@ class CanvasDFGExec(QtGui.QStandardItem):
         self.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
 
         self.subNodes = self._searchSubNodes() or []
-        self.ports = self._searchPorts() or []
+        # self.ports = self._searchPorts() or []
 
         if self.model:
             self.model.appendPresetName(self.presetName)
@@ -507,7 +529,10 @@ class CanvasDFGExec(QtGui.QStandardItem):
 
     @property
     def presetName(self):
-        return self.dfgexec.getPresetName()
+        name = self.dfgexec.getPresetName()
+        if not name:
+            name = "*not preset*"
+        return name
 
     @property
     def path(self):
