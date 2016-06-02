@@ -1,10 +1,5 @@
 import os
 import pytest
-import sys
-
-# [andrew 20160330] FE-6364
-pytestmark = pytest.mark.skipif(sys.version_info < (2, 7),
-        reason = "no support for Python 2.6")
 
 @pytest.fixture(scope='module')
 def core_client():

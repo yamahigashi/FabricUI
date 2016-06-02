@@ -1,10 +1,12 @@
 import platform
 import pytest
-import sys
+import os
 
 # [andrew 20160330] FE-6364
-pytestmark = pytest.mark.skipif(sys.version_info < (2, 7) or platform.system() == 'Darwin',
-        reason = "no support for Python 2.6 or missing display")
+pytestmark = pytest.mark.skipif(
+        (platform.system() == 'Linux' and not os.environ.has_key('DISPLAY')) or \
+            platform.system() == 'Darwin',
+        reason = "missing display")
 
 @pytest.fixture(scope="module")
 def canvas_win():
