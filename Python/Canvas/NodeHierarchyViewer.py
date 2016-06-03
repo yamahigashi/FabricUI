@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import json
 from collections import namedtuple
 from PySide import QtCore
 from PySide import QtGui
@@ -20,7 +21,7 @@ class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
         self.initData()
 
     def setHeader(self):
-        self.setHorizontalHeaderLabels(['Name', 'Type', "Modified", 'Preset'])
+        self.setHorizontalHeaderLabels(['Name', 'Type', "Modified", 'Preset', 'Preset Path'])
 
     def getRootIndex(self):
         return self.rootIndex
@@ -94,7 +95,7 @@ class NodeHierarchyViewerProxyModel(QtGui.QSortFilterProxyModel):
                     res = False
 
             if False in self.filterPreset.values():
-                id = self.sourceModel().index(row, 3, parent)
+                id = self.sourceModel().index(row, 4, parent)
                 data = self.sourceModel().data(id)
                 if not data:
                     res = True
@@ -151,6 +152,8 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.rootIndex = self.model.getRootIndex()
         self.expandToDepth(0)
         self.resizeColumnToContents(0)
+        self.resizeColumnToContents(1)
+        self.resizeColumnToContents(2)
         self.parent().satisfyFilterPreset(self.model.getPresetNameList())
 
     def collapseAll(self):
@@ -279,8 +282,12 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
     def showHideModified(self, checked):
         self.showHide(2, checked)
 
-    def showHidePreset(self, checked):
+    def showHidePresetName(self, checked):
         self.showHide(3, checked)
+
+    def showHidePresetPath(self, checked):
+        self.showHide(4, checked)
+
 
 
 class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
@@ -333,10 +340,12 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         optToggleColumnType.toggled.connect(self.view.showHideType)
         optToggleColumnModified = QtGui.QAction("show column modified", self, checkable=True, checked=True)
         optToggleColumnModified.toggled.connect(self.view.showHideModified)
-        optToggleColumnPreset = QtGui.QAction("show column preset", self, checkable=True, checked=True)
-        optToggleColumnPreset.toggled.connect(self.view.showHidePreset)
+        optToggleColumnPresetName = QtGui.QAction("show column preset name", self, checkable=True, checked=True)
+        optToggleColumnPresetName.toggled.connect(self.view.showHidePresetName)
+        optToggleColumnPresetPath = QtGui.QAction("show column preset path", self, checkable=True, checked=True)
+        optToggleColumnPresetPath.toggled.connect(self.view.showHidePresetPath)
 
-        # filter column
+        # filter row
         optFilterColumnTypeMenu = filterMenu.addMenu('filter by Type')
         optFilterColumnTypeGraph = QtGui.QAction("(G)raph", self, checkable=True, checked=True)
         optFilterColumnTypeGraph.toggled.connect(self.view.filterType)
@@ -347,18 +356,20 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         optFilterColumnModified = QtGui.QAction("show only modified", self, checkable=True, checked=False)
         optFilterColumnModified.toggled.connect(self.view.filterModified)
 
-        viewMenu.addAction(optSortOrderAlphabet)
-        viewMenu.addAction(optSortOrderDefault)
-        viewMenu.addSeparator()
-        viewMenu.addAction(optToggleColumnType)
-        viewMenu.addAction(optToggleColumnModified)
-        viewMenu.addAction(optToggleColumnPreset)
-
         optFilterColumnTypeMenu.addAction(optFilterColumnTypeGraph)
         optFilterColumnTypeMenu.addAction(optFilterColumnTypeFunc)
         optFilterColumnTypeMenu.addAction(optFilterColumnTypeVar)
         filterMenu.addAction(optFilterColumnModified)
         self.optFilterColumnPresetMenu = filterMenu.addMenu('filter by Preset name')
+
+        # TODO: sort order
+        viewMenu.addAction(optSortOrderAlphabet)
+        viewMenu.addAction(optSortOrderDefault)
+        viewMenu.addSeparator()
+        viewMenu.addAction(optToggleColumnType)
+        viewMenu.addAction(optToggleColumnModified)
+        viewMenu.addAction(optToggleColumnPresetName)
+        viewMenu.addAction(optToggleColumnPresetPath)
 
         toolbar.addSeparator()
         return toolbar
@@ -374,11 +385,19 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         self.optFilterColumnPresetMenu.addAction(action)
         self.optFilterColumnPresetMenu.addSeparator()
 
+        prev = []
         for p in sorted(items):
+
+            if prev != p.split('.')[0:-2]:
+                self.optFilterColumnPresetMenu.addSeparator()
+                prev = p.split('.')[0:-2]
+                print prev
+
             action = QtGui.QAction(p, self, checkable=True, checked=True)
             action.toggled.connect(self.view.filterPreset)
             self.optFilterColumnPresetMenu.addAction(action)
 
+        self.optFilterColumnPresetMenu.addSeparator()
         self.optFilterColumnPresetMenu.addSeparator()
         action = QtGui.QAction("set", self, checkable=True, checked=True)
         action.toggled.connect(self.view.filterPreset)
@@ -502,7 +521,8 @@ class CanvasDFGExec(QtGui.QStandardItem):
         # self.ports = self._searchPorts() or []
 
         if self.model:
-            self.model.appendPresetName(self.presetName)
+            # self.model.appendPresetName(self.presetName)
+            self.model.appendPresetName(self.presetPath)
 
     @property
     def execType(self):
@@ -534,6 +554,16 @@ class CanvasDFGExec(QtGui.QStandardItem):
         if not name:
             name = "*not preset*"
         return name
+
+    @property
+    def presetPath(self):
+        if not self.parent:
+            return ""
+
+        # FIXME:
+        ppath = self.parent.dfgexec.getNodeDesc(self.name)
+        ppath = json.loads(ppath).get('presetPath', self.presetName)
+        return ppath
 
     @property
     def path(self):
@@ -598,43 +628,56 @@ class CanvasDFGExec(QtGui.QStandardItem):
     # implement / override QtGui.QStandardItem
     def appendRow(self, _exec):
 
+        execTypeLabel = ""
+        isSplitted = False
+        presetName = ""
+        presetPath = ""
+
         if _exec.isGraph:
             execTypeLabel = 'g'  # graph
             presetName = _exec.presetName
             if _exec.dfgexec.editWouldSplitFromPreset():
                 isSplitted = ""
+                presetPath = _exec.presetPath
             else:
                 isSplitted = "*"
+                presetPath = "*not preset*"
 
         elif _exec.execType == 1:
             execTypeLabel = 'f'  # function
             presetName = _exec.presetName
             if _exec.dfgexec.editWouldSplitFromPreset():
                 isSplitted = ""
+                presetPath = _exec.presetPath
             else:
                 isSplitted = "*"
+                presetPath = "*not preset*"
 
         elif _exec.execType == 2:
             execTypeLabel = 'v'
             presetName = 'get'
+            presetPath = 'get'
             isSplitted = ""
 
         elif _exec.execType == 3:
             execTypeLabel = 'v'
             presetName = 'set'
+            presetPath = 'set'
             isSplitted = ""
 
         elif _exec.execType == 4:
             execTypeLabel = 'v'
             presetName = 'define'
+            presetPath = 'define'
             isSplitted = ""
 
         a = QtGui.QStandardItem(execTypeLabel)
         b = QtGui.QStandardItem(isSplitted)
         c = QtGui.QStandardItem(presetName)
+        d = QtGui.QStandardItem(presetPath)
         for x in [a, b, c]:
             x.setFlags(QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled)
-        QtGui.QStandardItem.appendRow(self, [_exec, a, b, c])
+        QtGui.QStandardItem.appendRow(self, [_exec, a, b, c, d])
 
 
 class CanvasDFGVariable(CanvasDFGExec):
