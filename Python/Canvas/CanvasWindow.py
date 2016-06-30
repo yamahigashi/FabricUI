@@ -86,6 +86,8 @@ class CanvasWindow(DFG.DFGMainWindow):
         self._initDocks()
         self._initMenus()
 
+        self._initPluginWidgets()
+
         self.restoreGeometry(self.settings.value("mainWindow/geometry"))
         self.restoreState(self.settings.value("mainWindow/state"))
         self.onFrameChanged(self.timeLine.getTime())
@@ -436,6 +438,73 @@ class CanvasWindow(DFG.DFGMainWindow):
         toggleAction = self.scriptEditorDock.toggleViewAction()
         toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_7)
         windowMenu.addAction(toggleAction)
+
+    def _initPluginWidgets(self):
+        """Initializes all plugin widgets that exists under PluginWidgets folder.
+
+        Example:
+
+            class CanvasWidget(QtGui.QTreeWidget):
+
+                labelName = 'Node Hierarchy Viewer'
+                area = QtCore.Qt.LeftDockWidgetArea
+                vertical = QtCore.Qt.Horizontal
+
+                def __init__(self, canvasWindow):
+                    pass
+        """
+
+        # get list of available widgets
+        widgets = []
+        pluginPath = os.path.join(os.path.dirname(__file__), "PluginWidgets")
+        for item in os.listdir(pluginPath):
+            if '__init__' in item or item.endswith('pyc'):
+                continue
+            if os.path.exists(os.path.join(pluginPath, item, "__init__.py")):
+                widgets.append(item)
+
+        if not widgets:
+            return
+
+        # prepare menubar
+        for kid in self.menuBar().children():
+            try:
+                if '&Window' in kid.title():
+                    windowMenu = kid
+                    windowMenu.addSeparator()
+                    break
+            except AttributeError as e:
+                pass
+        else:
+            mes = "Menu bar not found, give up loading plugin widgets."
+            self.dfgWidget.getDFGController().logError(mes)
+            return
+
+        # register plugin widgets into Canvas
+        self.pluginWidgets = {}
+        self.pluginWidgetDocks = {}
+        controller = self.dfgWidget.getDFGController()
+        for widget in widgets:
+            try:
+                moduleName = "FabricEngine.Canvas.PluginWidgets.{}".format(widget)
+                module = __import__(moduleName, globals(), locals(), ["*"], -1)
+                widgetKlass = getattr(module, "CanvasWidget")
+
+                instance = widgetKlass(self)
+
+                self.pluginWidgets[widget] = instance
+                self.pluginWidgetDocks[widget] = QtGui.QDockWidget(instance.labelName, self)
+                self.pluginWidgetDocks[widget].setObjectName(instance.labelName)
+                self.pluginWidgetDocks[widget].setFeatures(self.dockFeatures)
+                self.pluginWidgetDocks[widget].setWidget(self.pluginWidgets[widget])
+                self.addDockWidget(instance.area, self.pluginWidgetDocks[widget], instance.vertical)
+
+                # add menu
+                toggleAction = self.pluginWidgetDocks[widget].toggleViewAction()
+                windowMenu.addAction(toggleAction)
+
+            except Exception as e:
+                self.dfgWidget.getDFGController().logError(str(e))
 
     def onPortManipulationRequested(self, portName):
         """Method to trigger value changes that are requested form manipulators
