@@ -12,7 +12,6 @@ from PySide import QtCore, QtGui, QtOpenGL
 from FabricEngine import Core, FabricUI
 from FabricEngine.FabricUI import DFG, KLASTManager, Viewports, TimeLine
 from FabricEngine.Canvas.ScriptEditor import ScriptEditor
-from FabricEngine.Canvas.NodeHierarchyViewer import NodeHierarchyViewerWidget
 from FabricEngine.Canvas.UICmdHandler import UICmdHandler
 from FabricEngine.Canvas.RTValEncoderDecoder import RTValEncoderDecoder
 
@@ -84,9 +83,10 @@ class CanvasWindow(DFG.DFGMainWindow):
         self._initGL()
         self._initValueEditor()
         self._initTimeLine()
-        self._initNodeHierarchyViewer()
         self._initDocks()
         self._initMenus()
+
+        self._initPluginWidgets()
 
         self.restoreGeometry(self.settings.value("mainWindow/geometry"))
         self.restoreState(self.settings.value("mainWindow/state"))
@@ -326,16 +326,6 @@ class CanvasWindow(DFG.DFGMainWindow):
         self.timeLine.frameChanged.connect(self.onFrameChanged)
         self.timeLine.frameChanged.connect(self.valueEditor.onFrameChanged)
 
-    def _initNodeHierarchyViewer(self):
-        """Initializes the node explorer.
-
-        Also connects the DFG Controller's dirty signal to the onDirty method.
-        """
-
-        controller = self.dfgWidget.getDFGController()
-        self.nodeHierarchyViewer = NodeHierarchyViewerWidget(self.host, controller, self.dfgWidget, self.config, self)
-        controller.topoDirty.connect(self.nodeHierarchyViewer.refresh)
-
     def _initDocks(self):
         """Initializes all of dock widgets for the application.
 
@@ -405,13 +395,6 @@ class CanvasWindow(DFG.DFGMainWindow):
         self.scriptEditor.titleDataChanged.connect(scriptEditorTitleDataChanged)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.scriptEditorDock, QtCore.Qt.Vertical)
 
-        # Node Hierarchy Viewer Dock Widget
-        self.nodeHierarchyViewerDock = QtGui.QDockWidget("Node Hierarchy Viewer", self)
-        self.nodeHierarchyViewerDock.setObjectName("Node Hierarchy Viewer")
-        self.nodeHierarchyViewerDock.setFeatures(self.dockFeatures)
-        self.nodeHierarchyViewerDock.setWidget(self.nodeHierarchyViewer)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.nodeHierarchyViewerDock, QtCore.Qt.Horizontal)
-
     def _initMenus(self):
         """Initializes all menus for the application."""
 
@@ -431,7 +414,7 @@ class CanvasWindow(DFG.DFGMainWindow):
 
         # Toggle Value Editor Dock Widget Action
         toggleAction = self.valueEditorDockWidget.toggleViewAction()
-        toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_6)
+        toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_3)
         windowMenu.addAction(toggleAction)
 
         # Toggle Timeline Dock Widget Action
@@ -456,10 +439,89 @@ class CanvasWindow(DFG.DFGMainWindow):
         toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_7)
         windowMenu.addAction(toggleAction)
 
-        # Toggle Script Editor Dock Widget Action
-        toggleAction = self.nodeHierarchyViewerDock.toggleViewAction()
-        toggleAction.setShortcut(QtCore.Qt.CTRL + QtCore.Qt.Key_8)
-        windowMenu.addAction(toggleAction)
+    def _initPluginWidgets(self):
+        """Initializes all plugin widgets that exists under PluginWidgets folder.
+
+        Example:
+
+            class CanvasWidget(QtGui.QTreeWidget):
+
+                labelName = 'Node Hierarchy Viewer'
+                area = QtCore.Qt.LeftDockWidgetArea
+                vertical = QtCore.Qt.Horizontal
+
+                def __init__(self, canvasWindow):
+                    pass
+        """
+
+        # get list of available widgets
+        widgets = self._searchPluginWidgets()
+        if not widgets:
+            return
+
+        # prepare menubar for plugins
+        for kid in self.menuBar().children():
+            try:
+                if '&Window' in kid.title():
+                    windowMenu = kid
+                    windowMenu.addSeparator()
+                    break
+            except AttributeError as e:
+                pass
+        else:
+            mes = "Menu bar not found, give up loading plugin widgets."
+            self.dfgWidget.getDFGController().logError(mes)
+            return
+
+        # register plugin widgets into Canvas
+        self.pluginWidgets = {}
+        self.pluginWidgetDocks = {}
+        controller = self.dfgWidget.getDFGController()
+        for widget in widgets:
+            try:
+                moduleName = "FabricEngine.Canvas.PluginWidgets.{}".format(widget)
+                module = __import__(moduleName, globals(), locals(), ["*"], -1)
+                widgetKlass = getattr(module, "CanvasWidget")
+
+                instance = widgetKlass(self)
+
+                self.pluginWidgets[widget] = instance
+                self.pluginWidgetDocks[widget] = QtGui.QDockWidget(instance.labelName, self)
+                self.pluginWidgetDocks[widget].setObjectName(instance.labelName)
+                self.pluginWidgetDocks[widget].setFeatures(self.dockFeatures)
+                self.pluginWidgetDocks[widget].setWidget(self.pluginWidgets[widget])
+                instance.addDockWidget(self.addDockWidget, self.pluginWidgetDocks[widget])
+
+                # add menu
+                toggleAction = self.pluginWidgetDocks[widget].toggleViewAction()
+                windowMenu.addAction(toggleAction)
+
+            except Exception as e:
+                self.dfgWidget.getDFGController().logError(str(e))
+
+    def _searchPluginWidgets(self):
+        """get list of available widgets
+        """
+        def isPluginWidget(path):
+            if '__init__' in path:
+                return False
+            if path.endswith('pyc'):
+                return False
+            if path.endswith('py'):
+                return True
+            if os.path.isdir(path):
+                return True
+
+        widgets = []
+        pluginPath = os.path.join(os.path.dirname(__file__), "PluginWidgets")
+        for item in os.listdir(pluginPath):
+            path = os.path.join(pluginPath, item)
+            if not isPluginWidget(path):
+                continue
+            if os.path.exists(os.path.join(pluginPath, item, "__init__.py")):
+                widgets.append(item)
+
+        return widgets
 
     def onPortManipulationRequested(self, portName):
         """Method to trigger value changes that are requested form manipulators

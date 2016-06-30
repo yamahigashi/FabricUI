@@ -1388,9 +1388,7 @@ void DFGWidget::onHotkeyPressed(Qt::Key key, Qt::KeyboardModifier mod, QString h
   {
     m_uiGraph->mainPanel()->setAlwaysPan(true);
   }
-  else if ( !m_isEditable )
-    return; // exit quickly if we are not editable
-  else if(hotkey == DFGHotkeys::DELETE_1 || hotkey == DFGHotkeys::DELETE_2)
+  else if(m_isEditable && (hotkey == DFGHotkeys::DELETE_1 || hotkey == DFGHotkeys::DELETE_2))
   {
     std::vector<GraphView::Node *> nodes = getUIGraph()->selectedNodes();
     getUIController()->gvcDoRemoveNodes(nodes);
@@ -1403,7 +1401,7 @@ void DFGWidget::onHotkeyPressed(Qt::Key key, Qt::KeyboardModifier mod, QString h
   {
     getUIController()->frameAllNodes();
   }
-  else if(hotkey == DFGHotkeys::TAB_SEARCH)
+  else if(m_isEditable && hotkey == DFGHotkeys::TAB_SEARCH)
   {
     if (getUIController()->validPresetSplit())
     {
@@ -1416,7 +1414,7 @@ void DFGWidget::onHotkeyPressed(Qt::Key key, Qt::KeyboardModifier mod, QString h
   {
     onSelectAll();
   }
-  else if(hotkey == DFGHotkeys::DISCONNECT_ALL_PORTS)
+  else if(m_isEditable && hotkey == DFGHotkeys::DISCONNECT_ALL_PORTS)
   {
     onRemoveConnections();
   }
@@ -1424,11 +1422,11 @@ void DFGWidget::onHotkeyPressed(Qt::Key key, Qt::KeyboardModifier mod, QString h
   {
     onCopy();
   }
-  else if(hotkey == DFGHotkeys::CUT)
+  else if(m_isEditable && hotkey == DFGHotkeys::CUT)
   {
     onCut();
   }
-  else if(hotkey == DFGHotkeys::PASTE)
+  else if(m_isEditable && hotkey == DFGHotkeys::PASTE)
   {
     onPaste();
   }
