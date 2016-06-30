@@ -7,7 +7,7 @@ from PySide import QtCore
 from PySide import QtGui
 
 
-NODE_HIERARCHY_VIEWER_QSS = os.path.join(os.path.dirname(__file__), "NodeHierarchyViewer.qss")
+NODE_HIERARCHY_VIEWER_QSS = os.path.join(os.path.dirname(__file__), "style.qss")
 
 
 class NodeHierarchyViewerModel(QtGui.QStandardItemModel):
@@ -289,12 +289,20 @@ class NodeHierarchyViewerView(QtGui.QTreeView):
         self.showHide(4, checked)
 
 
-
-class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
+# class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
+class CanvasWidget(QtGui.QTreeWidget):
 
     titleDataChanged = QtCore.Signal(str, bool)
+    labelName = 'Node Hierarchy Viewer'
+    area = QtCore.Qt.LeftDockWidgetArea
+    vertical = QtCore.Qt.Horizontal
 
-    def __init__(self, host, controller, dfgWidget, settings, canvasWindow):
+    # def __init__(self, host, controller, dfgWidget, settings, canvasWindow):
+    def __init__(self, canvasWindow):
+
+        host = canvasWindow.host
+        controller = canvasWindow.dfgWidget.getDFGController()
+        dfgWidget = canvasWindow.dfgWidget
 
         self.__host = host
         self.__controller = controller
@@ -316,6 +324,8 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
         self.setContentsMargins(5, 5, 5, 5)
         self.setLayout(layout)
         self.styleSheet()
+
+        controller.topoDirty.connect(self.refresh)
 
     def __setupToolbar(self):
 
@@ -423,6 +433,12 @@ class NodeHierarchyViewerWidget(QtGui.QTreeWidget):
     def refresh(self, *args):
 
         self.view.refresh()
+
+    def getLabelName(self):
+        return self.labelName
+
+    def addDockWidget(self, parentFunc, dock):
+        parentFunc(self.area, dock, self.vertical)
 
 
 class CanvasPortInfo(object):
