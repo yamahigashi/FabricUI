@@ -455,18 +455,11 @@ class CanvasWindow(DFG.DFGMainWindow):
         """
 
         # get list of available widgets
-        widgets = []
-        pluginPath = os.path.join(os.path.dirname(__file__), "PluginWidgets")
-        for item in os.listdir(pluginPath):
-            if '__init__' in item or item.endswith('pyc'):
-                continue
-            if os.path.exists(os.path.join(pluginPath, item, "__init__.py")):
-                widgets.append(item)
-
+        widgets = self._searchPluginWidgets()
         if not widgets:
             return
 
-        # prepare menubar
+        # prepare menubar for plugins
         for kid in self.menuBar().children():
             try:
                 if '&Window' in kid.title():
@@ -497,7 +490,7 @@ class CanvasWindow(DFG.DFGMainWindow):
                 self.pluginWidgetDocks[widget].setObjectName(instance.labelName)
                 self.pluginWidgetDocks[widget].setFeatures(self.dockFeatures)
                 self.pluginWidgetDocks[widget].setWidget(self.pluginWidgets[widget])
-                self.addDockWidget(instance.area, self.pluginWidgetDocks[widget], instance.vertical)
+                instance.addDockWidget(self.addDockWidget, self.pluginWidgetDocks[widget])
 
                 # add menu
                 toggleAction = self.pluginWidgetDocks[widget].toggleViewAction()
@@ -505,6 +498,30 @@ class CanvasWindow(DFG.DFGMainWindow):
 
             except Exception as e:
                 self.dfgWidget.getDFGController().logError(str(e))
+
+    def _searchPluginWidgets(self):
+        """get list of available widgets
+        """
+        def isPluginWidget(path):
+            if '__init__' in path:
+                return False
+            if path.endswith('pyc'):
+                return False
+            if path.endswith('py'):
+                return True
+            if os.path.isdir(path):
+                return True
+
+        widgets = []
+        pluginPath = os.path.join(os.path.dirname(__file__), "PluginWidgets")
+        for item in os.listdir(pluginPath):
+            path = os.path.join(pluginPath, item)
+            if not isPluginWidget(path):
+                continue
+            if os.path.exists(os.path.join(pluginPath, item, "__init__.py")):
+                widgets.append(item)
+
+        return widgets
 
     def onPortManipulationRequested(self, portName):
         """Method to trigger value changes that are requested form manipulators
